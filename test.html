@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>力导向图</title>
+  <script src="d3.js"></script>
+  <style>
+    html, body {
+      width: 100%;
+      min-width: 1024px;
+      min-height: 650px;
+      height: 100%;
+      font-family: Raleway, sans-serif;
+      color: #ddd;
+      margin: 0;
+      padding: 0;
+    }
+    div, ul, li, a, span {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      list-style: none;
+    }
+    ul {
+      line-height: 1;
+      display: block;
+      box-sizing: border-box;
+    }
+    .switch-layer {
+      position: relative;
+      background: #333;
+      min-height: 50px;
+    }
+    .switch-list > li {
+      float: left;
+      padding-right: 10px;
+      border-right: 1px solid #aaa;
+    }
+    .switch-list > li > a {
+      padding: 12px;
+      padding-left: 17px;
+      padding-bottom: 5px;
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-decoration: none;
+      color: #dddddd;
+      font-weight: 400;
+      text-transform: uppercase;
+    }
+
+    path.link {
+      fill: none;
+      stroke: #666;
+      stroke-width: 1.5px;
+    }
+
+    circle {
+      fill: #ccc;
+      stroke: #333;
+      stroke-width: 1.5px;
+    }
+
+    text {
+      font: 10px sans-serif;
+      pointer-events: none;
+    }
+
+    text.shadow {
+      stroke: #fff;
+      stroke-width: 3px;
+      stroke-opacity: .8;
+    }
+    .btn {
+      float: right;
+    }
+  </style>
+</head>
+
+<body>
+  <!--<div class="btn">
+    <input type="checkbox" id="node" />节点 <br/>
+    <input type="checkbox" id="path" />路径 <br/>
+    <input type="checkbox" id="samePath" />统一线条<br/>
+  </div>-->
+  <div class="switch-layer">
+    <ul class="switch-list" id="switch_list">
+      <li>
+        <a>
+          <span class="main-control">Line control</span><br/>
+          <span class="sub-control">Different weight line</span>
+        </a>
+        <ul class="line-list" id="line_list" >
+          <li>No line</li>
+          <li>Same weight line</li>
+          <li>Different weight line</li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+  <script>
+  var nodes_source = [
+    {name:"1.2.1.1.1", pv:39438, uv:33266},
+    {name:"1.3.1.1.1", pv:35241, uv:28091},
+    {name:"1.4.1.1.8", pv:39226, uv:30691},
+    {name:"1.5.1.1.1", pv:39430, uv:36659},
+    {name:"1.5.1.1.7", pv:36558, uv:30747},
+    {name:"1.5.1.1.8", pv:38239, uv:34758},
+    {name:"1.6.1.3.2", pv:38608, uv:31687},
+    {name:"1.7.1.1.12", pv:39541, uv:19523},
+    {name:"1.9.1.1.11", pv:38428, uv:34200},
+    {name:"1.9.1.3.4", pv:37828, uv:24850},
+    {name:"1.9.1.4.1", pv:38221, uv:29026},
+    {name:"1.11.1.1.7", pv:38482, uv:16957},
+    {name:"1.11.1.1.17", pv:38455, uv:29501},
+    {name:"1.12.1.1.1", pv:38678, uv:32780},
+    {name:"1.12.2.1.1", pv:22719, uv:10173},
+    {name:"1.12.2.1.4", pv:30087, uv:22059},
+    {name:"1.13.1.1.1", pv:37241, uv:26811},
+    {name:"1.14.1.1.11", pv:39113, uv:21271},
+    {name:"1.14.1.4.1", pv:80022, uv:25143},
+    {name:"1.14.1.4.2", pv:39808, uv:23048},
+    {name:"1.15.1.2.2", pv:38003, uv:22918},
+    {name:"1.27.1.1.1", pv:37017, uv:25777},
+    {name:"1.35.1.1.1", pv:39104, uv:23242},
+    {name:"1.35.1.1.4", pv:39396, uv:29174},
+    {name:"3.2.1.1.1", pv:21578, uv:9478},
+    {name:"3.6.1.1.1", pv:1771, uv:1642},
+    {name:"5.1.1.1.2", pv:38841, uv:30446},
+    {name:"5.1.1.1.3", pv:19769, uv:8423},
+    {name:"5.6.1.1.2", pv:23340, uv:15721},
+    {name:"5.10.1.1.1", pv:1494, uv:1000}
+  ];
+
+  var line_source = [
+    {from:"1.2.1.1.1", to:"1.27.1.1.1", from_to:6909, to_from:1876},
+    {from:"1.5.1.1.7", to:"1.9.1.1.11", from_to:990, to_from:735},
+    {from:"1.9.1.3.4", to:"1.12.1.1.1", from_to:549, to_from:550},
+    {from:"1.12.1.1.1", to:"1.11.1.1.17", from_to:566, to_from:639},
+    {from:"1.12.2.1.1", to:"3.2.1.1.1", from_to: 19624, to_from: 10288},
+    {from:"1.9.1.4.1", to:"1.13.1.1.1", from_to:588, to_from:667},
+    {from:"1.14.1.4.1", to:"1.14.1.4.2", from_to: 14888, to_from:9817},
+    {from:"1.2.1.1.1", to:"1.5.1.1.7", from_to:1529, to_from:772},
+    {from:"1.5.1.1.7", to:"1.3.1.1.1", from_to:460, to_from:105},
+    {from:"1.5.1.1.7", to:"1.27.1.1.1", from_to:1405, to_from:849,},
+    {from:"1.9.1.4.1", to:"1.35.1.1.1", from_to:1070, to_from:880,},
+    {from:"1.35.1.1.1", to:"1.9.1.1.11", from_to:1062, to_from:1202,},
+    {from:"1.9.1.4.1", to:"1.5.1.1.8", from_to:688, to_from:561,},
+    {from:"1.5.1.1.8", to:"1.9.1.1.11", from_to:836, to_from:1100,},
+    {from:"1.9.1.1.11", to:"1.9.1.3.4", from_to:1182, to_from:1219,},
+    {from:"1.9.1.3.4", to:"1.15.1.2.2", from_to:588, to_from:565,},
+    {from:"1.9.1.1.11", to:"1.13.1.1.1", from_to:724, to_from:915,},
+    {from:"1.13.1.1.1", to:"1.35.1.1.1", from_to:597, to_from:484,},
+    {from:"1.35.1.1.1", to:"1.5.1.1.8", from_to:666, to_from:469,},
+    {from:"1.5.1.1.8", to:"1.5.1.1.1", from_to:1329, to_from:1407,},
+    {from:"1.5.1.1.1", to:"1.5.1.1.7", from_to:448, to_from:608,},
+    {from:"1.35.1.1.1", to:"1.9.1.3.4", from_to:617, to_from:703,},
+    {from:"1.9.1.3.4", to:"1.9.1.4.1", from_to:1819, to_from:1494,},
+    {from:"1.35.1.1.1", to:"1.12.2.1.1", from_to:47, to_from: 6,},
+    {from:"1.35.1.1.1", to:"1.11.1.1.17", from_to:727, to_from:931,},
+    {from:"1.11.1.1.17", to:"1.13.1.1.1", from_to:691, to_from:651,},
+    {from:"1.13.1.1.1", to:"5.1.1.1.2", from_to:642, to_from:606,},
+    {from:"5.1.1.1.2", to:"1.5.1.1.8", from_to:890, to_from:543,},
+    {from:"1.6.1.3.2", to:"1.9.1.4.1", from_to:1196, to_from:761,},
+    {from:"1.27.1.1.1", to:"1.11.1.1.17", from_to:234, to_from:109,},
+    {from:"1.5.1.1.7", to:"1.15.1.2.2", from_to:335, to_from:241,},
+    {from:"1.14.1.4.2", to:"1.9.1.4.1", from_to:339, to_from:195,},
+    {from:"1.11.1.1.7", to:"1.6.1.3.2", from_to:460, to_from:753,},
+    {from:"1.11.1.1.7", to:"1.35.1.1.1", from_to:481, to_from:358,},
+    {from:"5.1.1.1.2", to:"1.9.1.4.1", from_to:988, to_from:994,},
+    {from:"5.1.1.1.3", to:"1.12.2.1.4", from_to:671, to_from:743,},
+    {from:"1.5.1.1.8", to:"1.35.1.1.4", from_to:539, to_from:923,},
+    {from:"1.5.1.1.8", to:"1.6.1.3.2", from_to:1360, to_from:1447,},
+    {from:"1.6.1.3.2", to:"1.9.1.1.11", from_to:1194, to_from:811,},
+    {from:"1.5.1.1.8", to:"1.5.1.1.7", from_to:1932, to_from:2329,},
+    {from:"1.5.1.1.1", to:"1.12.2.1.4", from_to:235, to_from:151,},
+    {from:"1.12.2.1.4", to:"1.35.1.1.1", from_to:167, to_from:142,},
+    {from:"1.2.1.1.1", to:"1.5.1.1.1", from_to:307, to_from:140,},
+    {from:"1.5.1.1.1", to:"1.4.1.1.8", from_to:464, to_from:289,},
+    {from:"1.4.1.1.8", to:"1.27.1.1.1", from_to:1249, to_from:1287,},
+    {from:"1.27.1.1.1", to:"5.6.1.1.2", from_to:149, to_from:45,},
+    {from:"1.2.1.1.1", to:"1.3.1.1.1", from_to:2696, to_from:291,},
+    {from:"1.13.1.1.1", to:"1.35.1.1.4", from_to:633, to_from:597,},
+    {from:"1.35.1.1.4", to:"1.35.1.1.1", from_to:2103, to_from:3438,},
+    {from:"1.9.1.3.4", to:"1.14.1.1.11", from_to:956, to_from:862,},
+    {from:"1.5.1.1.1", to:"1.9.1.4.1", from_to:964, to_from:611,},
+    {from:"5.1.1.1.2", to:"1.35.1.1.1", from_to:875, to_from:532,},
+    {from:"1.35.1.1.1", to:"1.14.1.4.1", from_to:266, to_from:294,},
+    {from:"1.14.1.4.1", to:"1.13.1.1.1", from_to:458, to_from:487},
+    {from:"1.35.1.1.1", to:"1.5.1.1.1", from_to:539, to_from:848},
+    {from:"1.9.1.4.1", to:"1.35.1.1.4", from_to:1180, to_from:1021},
+    {from:"1.35.1.1.4", to:"1.11.1.1.17", from_to:559, to_from:693},
+    {from:"1.11.1.1.17", to:"1.9.1.1.11", from_to:1663, to_from:1476},
+    {from:"1.9.1.1.11", to:"1.5.1.1.1", from_to:791, to_from:1341},
+    {from:"1.27.1.1.1", to:"1.5.1.1.8", from_to:1022, to_from:380},
+    {from:"1.6.1.3.2", to:"1.15.1.2.2", from_to:443, to_from:272},
+    {from:"1.2.1.1.1", to:"1.14.1.4.1", from_to:150, to_from:76},
+    {from:"1.14.1.4.1", to:"1.12.1.1.1", from_to:317, to_from:380},
+    {from:"1.12.1.1.1", to:"1.5.1.1.1", from_to:357, to_from:530},
+    {from:"1.5.1.1.7", to:"1.13.1.1.1", from_to:588, to_from:318},
+    {from:"1.13.1.1.1", to:"1.9.1.3.4", from_to:390, to_from:457},
+    {from:"1.4.1.1.8", to:"1.12.2.1.4", from_to:660, to_from:525},
+    {from:"1.12.2.1.4", to:"1.12.1.1.1", from_to:847, to_from:808},
+    {from:"1.12.1.1.1", to:"5.10.1.1.1", from_to:37, to_from:28},
+    {from:"5.10.1.1.1", to:"1.35.1.1.4", from_to:13, to_from:14},
+    {from:"1.27.1.1.1", to:"1.6.1.3.2", from_to:140, to_from:46},
+    {from:"1.6.1.3.2", to:"1.12.1.1.1", from_to:528, to_from:367},
+    {from:"1.4.1.1.8", to:"5.1.1.1.2", from_to:604, to_from:235},
+    {from:"1.11.1.1.7", to:"1.9.1.4.1", from_to:674, to_from:530},
+    {from:"1.6.1.3.2", to:"1.35.1.1.1", from_to:705, to_from:486},
+    {from:"1.13.1.1.1", to:"1.5.1.1.1", from_to:422, to_from:577},
+    {from:"1.15.1.2.2", to:"1.12.2.1.4", from_to:160, to_from:155},
+    {from:"1.15.1.2.2", to:"1.14.1.4.2", from_to:148, to_from:244},
+    {from:"1.14.1.4.2", to:"1.9.1.3.4", from_to:362, to_from:222},
+    {from:"1.9.1.3.4", to:"1.14.1.4.1", from_to:334, to_from:309},
+    {from:"1.14.1.4.1", to:"1.35.1.1.4", from_to:321, to_from:398},
+    {from:"1.35.1.1.4", to:"1.7.1.1.12", from_to:295, to_from:174},
+    {from:"1.11.1.1.7", to:"1.14.1.1.11", from_to:640, to_from:514},
+    {from:"1.14.1.1.11", to:"1.5.1.1.1", from_to:401, to_from:647},
+    {from:"1.12.1.1.1", to:"1.11.1.1.7", from_to:334, to_from:375},
+    {from:"1.6.1.3.2", to:"1.11.1.1.17", from_to:1406, to_from:823},
+    {from:"1.2.1.1.1", to:"1.9.1.1.11", from_to:210, to_from:123},
+    {from:"1.9.1.3.4", to:"1.6.1.3.2", from_to:703, to_from:1079},
+    {from:"1.9.1.1.11", to:"1.9.1.4.1", from_to:1558, to_from:1469},
+    {from:"1.5.1.1.8", to:"1.9.1.3.4", from_to:502, to_from:597},
+    {from:"1.11.1.1.7", to:"1.9.1.1.11", from_to:533, to_from:499},
+    {from:"1.7.1.1.12", to:"5.1.1.1.2", from_to:924, to_from:916},
+    {from:"5.1.1.1.2", to:"1.14.1.4.1", from_to:634, to_from:498},
+    {from:"1.14.1.4.2", to:"5.1.1.1.2", from_to:572, to_from:335},
+    {from:"1.14.1.4.1", to:"1.5.1.1.1", from_to:384, to_from:902},
+    {from:"1.5.1.1.1", to:"1.7.1.1.12", from_to:369, to_from:286},
+    {from:"1.5.1.1.8", to:"1.7.1.1.12", from_to:190, to_from:341},
+    {from:"1.7.1.1.12", to:"1.14.1.1.11", from_to:170, to_from:295},
+    {from:"1.5.1.1.1", to:"1.15.1.2.2", from_to:484, to_from:262},
+    {from:"1.15.1.2.2", to:"1.12.1.1.1", from_to:472, to_from:476},
+    {from:"1.5.1.1.7", to:"1.9.1.3.4", from_to:506, to_from:324},
+    {from:"1.5.1.1.7", to:"1.9.1.4.1", from_to:546, to_from:417},
+    {from:"1.13.1.1.1", to:"5.6.1.1.2", from_to:229, to_from:171},
+    {from:"5.6.1.1.2", to:"5.1.1.1.3", from_to:293, to_from:268},
+    {from:"5.1.1.1.3", to:"1.6.1.3.2", from_to:55, to_from:65},
+    {from:"1.6.1.3.2", to:"1.12.2.1.4", from_to:180, to_from:118},
+    {from:"1.12.2.1.4", to:"5.1.1.1.2", from_to:299, to_from:296},
+    {from:"5.1.1.1.2", to:"5.1.1.1.3", from_to:300, to_from:236},
+    {from:"1.11.1.1.17", to:"1.5.1.1.1", from_to:945, to_from:1457},
+    {from:"1.35.1.1.1", to:"1.12.1.1.1", from_to:654, to_from:565},
+    {from:"1.14.1.4.1", to:"5.6.1.1.2", from_to:141, to_from:161},
+    {from:"5.6.1.1.2", to:"1.15.1.2.2", from_to:201, to_from:199},
+    {from:"1.4.1.1.8", to:"1.5.1.1.8", from_to:403, to_from:214},
+    {from:"1.27.1.1.1", to:"1.3.1.1.1", from_to:1716, to_from:263},
+    {from:"1.35.1.1.1", to:"1.14.1.1.11", from_to:913, to_from:1042},
+    {from:"1.13.1.1.1", to:"1.11.1.1.7", from_to:888, to_from:878},
+    {from:"1.6.1.3.2", to:"1.5.1.1.7", from_to:1280, to_from:1789},
+    {from:"1.15.1.2.2", to:"5.1.1.1.3", from_to:74, to_from:88},
+    {from:"1.5.1.1.7", to:"1.11.1.1.17", from_to:659, to_from:481},
+    {from:"1.9.1.1.11", to:"1.14.1.1.11", from_to:1322, to_from:1216},
+    {from:"3.2.1.1.1", to:"5.1.1.1.3", from_to:154, to_from: 4},
+    {from:"5.1.1.1.3", to:"1.9.1.1.11", from_to:49, to_from:57},
+    {from:"1.9.1.1.11", to:"1.35.1.1.4", from_to:827, to_from:729},
+    {from:"1.9.1.1.11", to:"1.15.1.2.2", from_to:605, to_from:562},
+    {from:"1.13.1.1.1", to:"1.6.1.3.2", from_to:481, to_from:747},
+    {from:"1.5.1.1.8", to:"1.14.1.1.11", from_to:344, to_from:527},
+    {from:"1.5.1.1.7", to:"1.35.1.1.4", from_to:547, to_from:525},
+    {from:"1.11.1.1.17", to:"1.14.1.1.11", from_to:990, to_from:822},
+    {from:"1.14.1.1.11", to:"1.9.1.4.1", from_to:1994, to_from:2486},
+    {from:"1.6.1.3.2", to:"5.1.1.1.2", from_to:799, to_from:554},
+    {from:"1.14.1.4.1", to:"1.9.1.1.11", from_to:371, to_from:468},
+    {from:"1.14.1.4.2", to:"1.5.1.1.1", from_to:441, to_from:480},
+    {from:"1.14.1.4.2", to:"1.13.1.1.1", from_to:438, to_from:254},
+    {from:"1.2.1.1.1", to:"1.4.1.1.8", from_to:1758, to_from:624},
+    {from:"1.9.1.1.11", to:"5.1.1.1.2", from_to:869, to_from:987},
+    {from:"5.1.1.1.2", to:"1.9.1.3.4", from_to:660, to_from:784},
+    {from:"1.27.1.1.1", to:"1.12.1.1.1", from_to:604, to_from:202},
+    {from:"5.6.1.1.2", to:"1.5.1.1.1", from_to:95, to_from:134},
+    {from:"1.35.1.1.4", to:"1.15.1.2.2", from_to:342, to_from:348},
+    {from:"1.7.1.1.12", to:"1.15.1.2.2", from_to:324, to_from:351},
+    {from:"1.15.1.2.2", to:"1.9.1.4.1", from_to:771, to_from:760},
+    {from:"1.9.1.4.1", to:"1.11.1.1.17", from_to:972, to_from:1243},
+    {from:"1.15.1.2.2", to:"1.35.1.1.1", from_to:374, to_from:361},
+    {from:"1.2.1.1.1", to:"1.12.2.1.4", from_to:300, to_from:92},
+    {from:"1.5.1.1.1", to:"1.11.1.1.7", from_to:581, to_from:361},
+    {from:"1.5.1.1.1", to:"1.27.1.1.1", from_to:312, to_from:483},
+    {from:"1.27.1.1.1", to:"1.14.1.1.11", from_to:158, to_from:68},
+    {from:"1.2.1.1.1", to:"1.9.1.4.1", from_to:108, to_from:61},
+    {from:"1.9.1.4.1", to:"1.7.1.1.12", from_to:318, to_from:237},
+    {from:"1.12.1.1.1", to:"1.9.1.4.1", from_to:673, to_from:636},
+    {from:"1.35.1.1.4", to:"1.6.1.3.2", from_to:590, to_from:718},
+    {from:"1.35.1.1.4", to:"1.27.1.1.1", from_to:236, to_from:748},
+    {from:"1.5.1.1.7", to:"1.7.1.1.12", from_to:150, to_from:143},
+    {from:"1.5.1.1.7", to:"1.35.1.1.1", from_to:547, to_from:406},
+    {from:"1.15.1.2.2", to:"1.11.1.1.7", from_to:278, to_from:357},
+    {from:"1.5.1.1.1", to:"1.35.1.1.4", from_to:923, to_from:793},
+    {from:"1.9.1.3.4", to:"1.35.1.1.4", from_to:564, to_from:542},
+    {from:"1.14.1.4.1", to:"1.11.1.1.17", from_to:309, to_from:385},
+    {from:"1.7.1.1.12", to:"1.6.1.3.2", from_to:206, to_from:244},
+    {from:"1.5.1.1.8", to:"1.3.1.1.1", from_to:378, to_from:63},
+    {from:"5.1.1.1.2", to:"1.15.1.2.2", from_to:497, to_from:365},
+    {from:"1.6.1.3.2", to:"1.14.1.1.11", from_to:687, to_from:473},
+    {from:"5.1.1.1.2", to:"1.11.1.1.17", from_to:834, to_from:916},
+    {from:"1.12.1.1.1", to:"1.5.1.1.7", from_to:310, to_from:403},
+    {from:"1.14.1.1.11", to:"1.5.1.1.7", from_to:300, to_from:369},
+    {from:"1.11.1.1.7", to:"5.1.1.1.2", from_to:448, to_from:358},
+    {from:"5.6.1.1.2", to:"1.35.1.1.1", from_to:169, to_from:134},
+    {from:"1.11.1.1.17", to:"1.5.1.1.8", from_to:1083, to_from:696},
+    {from:"1.5.1.1.1", to:"1.6.1.3.2", from_to:1630, to_from:1009},
+    {from:"1.35.1.1.4", to:"1.12.1.1.1", from_to:875, to_from:738},
+    {from:"1.12.1.1.1", to:"5.1.1.1.2", from_to:575, to_from:692},
+    {from:"1.12.2.1.4", to:"1.7.1.1.12", from_to:826, to_from:242},
+    {from:"1.4.1.1.8", to:"1.35.1.1.4", from_to:524, to_from:317},
+    {from:"1.35.1.1.4", to:"1.3.1.1.1", from_to:129, to_from:46},
+    {from:"5.1.1.1.2", to:"1.5.1.1.1", from_to:668, to_from:965},
+    {from:"1.2.1.1.1", to:"5.1.1.1.2", from_to:407, to_from:236},
+    {from:"1.27.1.1.1", to:"1.35.1.1.1", from_to:488, to_from:113},
+    {from:"1.5.1.1.8", to:"1.14.1.4.2", from_to:231, to_from:430},
+    {from:"1.35.1.1.1", to:"5.1.1.1.3", from_to:43, to_from:50},
+    {from:"1.15.1.2.2", to:"1.5.1.1.8", from_to:380, to_from:243},
+    {from:"1.9.1.1.11", to:"1.3.1.1.1", from_to:57, to_from:14},
+    {from:"1.12.1.1.1", to:"5.1.1.1.3", from_to:171, to_from:180},
+    {from:"1.5.1.1.8", to:"1.13.1.1.1", from_to:393, to_from:556},
+    {from:"1.5.1.1.7", to:"5.1.1.1.2", from_to:666, to_from:537},
+    {from:"1.9.1.3.4", to:"1.12.2.1.1", from_to:170, to_from:14},
+    {from:"3.2.1.1.1", to:"1.9.1.4.1", from_to:122, to_from: 2},
+    {from:"1.27.1.1.1", to:"5.1.1.1.3", from_to:123, to_from:39},
+    {from:"1.35.1.1.4", to:"5.1.1.1.2", from_to:720, to_from:931},
+    {from:"1.9.1.1.11", to:"5.6.1.1.2", from_to:163, to_from:165},
+    {from:"5.6.1.1.2", to:"1.7.1.1.12", from_to:226, to_from:142},
+    {from:"1.27.1.1.1", to:"1.12.2.1.4", from_to:582, to_from:305},
+    {from:"1.6.1.3.2", to:"1.12.2.1.1", from_to:254, to_from:17},
+    {from:"3.2.1.1.1", to:"5.10.1.1.1", from_to:24, to_from: 2},
+    {from:"5.10.1.1.1", to:"1.9.1.1.11", from_to:20, to_from:12},
+    {from:"1.4.1.1.8", to:"1.14.1.4.1", from_to:338, to_from:196},
+    {from:"1.14.1.4.2", to:"1.4.1.1.8", from_to:158, to_from:195},
+    {from:"1.4.1.1.8", to:"1.13.1.1.1", from_to:376, to_from:218},
+    {from:"1.6.1.3.2", to:"5.6.1.1.2", from_to:139, to_from:93},
+    {from:"1.11.1.1.17", to:"3.6.1.1.1", from_to:16, to_from:11},
+    {from:"3.6.1.1.1", to:"1.13.1.1.1", from_to:26, to_from:35},
+    {from:"1.12.2.1.4", to:"1.11.1.1.7", from_to:164, to_from:138},
+    {from:"1.14.1.4.2", to:"5.6.1.1.2", from_to:121, to_from:83},
+    {from:"1.12.1.1.1", to:"1.9.1.1.11", from_to:549, to_from:603},
+    {from:"1.13.1.1.1", to:"1.12.1.1.1", from_to:592, to_from:648},
+    {from:"1.12.1.1.1", to:"1.5.1.1.8", from_to:476, to_from:366},
+    {from:"1.5.1.1.8", to:"1.2.1.1.1", from_to:377, to_from:776},
+    {from:"1.5.1.1.7", to:"1.4.1.1.8", from_to:381, to_from:265},
+    {from:"1.2.1.1.1", to:"1.12.1.1.1", from_to:347, to_from:138},
+    {from:"1.5.1.1.7", to:"5.6.1.1.2", from_to:81, to_from:73},
+    {from:"1.2.1.1.1", to:"1.35.1.1.4", from_to:356, to_from:256},
+    {from:"1.14.1.1.11", to:"1.13.1.1.1", from_to:524, to_from:555},
+    {from:"1.14.1.1.11", to:"1.15.1.2.2", from_to:523, to_from:512},
+    {from:"1.5.1.1.8", to:"5.1.1.1.3", from_to:70, to_from:74},
+    {from:"1.14.1.4.1", to:"1.11.1.1.7", from_to:203, to_from:249},
+    {from:"1.7.1.1.12", to:"1.9.1.1.11", from_to:249, to_from:398},
+    {from:"1.27.1.1.1", to:"5.1.1.1.2", from_to:956, to_from:201},
+    {from:"5.1.1.1.2", to:"5.6.1.1.2", from_to:199, to_from:145},
+    {from:"1.12.2.1.4", to:"1.11.1.1.17", from_to:175, to_from:164},
+    {from:"5.1.1.1.2", to:"1.14.1.1.11", from_to:694, to_from:530},
+    {from:"1.4.1.1.8", to:"1.12.1.1.1", from_to:658, to_from:369},
+    {from:"1.5.1.1.1", to:"1.9.1.3.4", from_to:802, to_from:541},
+    {from:"1.9.1.3.4", to:"1.7.1.1.12", from_to:285, to_from:266},
+    {from:"1.14.1.1.11", to:"1.12.2.1.1", from_to:91, to_from:14},
+    {from:"1.12.2.1.1", to:"1.9.1.4.1", from_to:21, to_from:118},
+    {from:"1.12.2.1.1", to:"1.15.1.2.2", from_to:16, to_from:84},
+    {from:"1.5.1.1.7", to:"1.12.2.1.1", from_to:59, to_from: 5},
+    {from:"1.5.1.1.8", to:"5.6.1.1.2", from_to:85, to_from:121},
+    {from:"1.14.1.4.1", to:"1.15.1.2.2", from_to:205, to_from:233},
+    {from:"1.5.1.1.7", to:"1.14.1.4.2", from_to:173, to_from:161},
+    {from:"1.14.1.4.1", to:"1.3.1.1.1", from_to:68, to_from:21},
+    {from:"1.14.1.1.11", to:"1.35.1.1.4", from_to:678, to_from:602},
+    {from:"1.9.1.3.4", to:"5.1.1.1.3", from_to:59, to_from:71},
+    {from:"1.7.1.1.12", to:"1.14.1.4.1", from_to:491, to_from:566},
+    {from:"1.14.1.4.2", to:"1.35.1.1.4", from_to:344, to_from:194},
+    {from:"1.11.1.1.17", to:"1.7.1.1.12", from_to:340, to_from:321},
+    {from:"1.14.1.4.1", to:"5.10.1.1.1", from_to:10, to_from: 3},
+    {from:"5.10.1.1.1", to:"3.6.1.1.1", from_to:18, to_from:13},
+    {from:"3.6.1.1.1", to:"1.9.1.4.1", from_to:21, to_from:15},
+    {from:"1.27.1.1.1", to:"1.14.1.4.1", from_to:292, to_from:86},
+    {from:"1.14.1.4.2", to:"1.12.2.1.4", from_to:163, to_from:116},
+    {from:"1.14.1.4.2", to:"1.14.1.1.11", from_to:282, to_from:154},
+    {from:"1.4.1.1.8", to:"1.11.1.1.17", from_to:255, to_from:144},
+    {from:"1.7.1.1.12", to:"1.4.1.1.8", from_to:248, to_from:296},
+    {from:"1.9.1.3.4", to:"1.11.1.1.7", from_to:602, to_from:603},
+    {from:"1.27.1.1.1", to:"1.9.1.1.11", from_to:346, to_from:159},
+    {from:"5.1.1.1.3", to:"1.9.1.4.1", from_to:82, to_from:69},
+    {from:"1.13.1.1.1", to:"1.7.1.1.12", from_to:649, to_from:490},
+    {from:"1.7.1.1.12", to:"5.1.1.1.3", from_to:267, to_from:352},
+    {from:"1.11.1.1.7", to:"1.14.1.4.2", from_to:152, to_from:208},
+    {from:"1.4.1.1.8", to:"1.9.1.4.1", from_to:218, to_from:111},
+    {from:"1.9.1.4.1", to:"1.3.1.1.1", from_to:39, to_from: 8},
+    {from:"1.14.1.4.2", to:"1.7.1.1.12", from_to:288, to_from:190},
+    {from:"1.7.1.1.12", to:"1.11.1.1.7", from_to:284, to_from:288},
+    {from:"1.7.1.1.12", to:"1.12.1.1.1", from_to:292, to_from:463},
+    {from:"1.9.1.4.1", to:"1.14.1.4.1", from_to:375, to_from:319},
+    {from:"1.35.1.1.4", to:"5.6.1.1.2", from_to:224, to_from:226},
+    {from:"1.12.2.1.1", to:"1.14.1.4.1", from_to:21, to_from:88},
+    {from:"1.27.1.1.1", to:"1.13.1.1.1", from_to:329, to_from:148},
+    {from:"1.14.1.4.1", to:"1.5.1.1.7", from_to:139, to_from:289},
+    {from:"1.14.1.4.2", to:"1.6.1.3.2", from_to:219, to_from:239},
+    {from:"1.15.1.2.2", to:"1.4.1.1.8", from_to:89, to_from:220},
+    {from:"1.4.1.1.8", to:"1.9.1.1.11", from_to:279, to_from:157},
+    {from:"1.13.1.1.1", to:"1.12.2.1.1", from_to:135, to_from:23},
+    {from:"5.10.1.1.1", to:"1.9.1.3.4", from_to:44, to_from:17},
+    {from:"5.10.1.1.1", to:"1.11.1.1.17", from_to:17, to_from:10},
+    {from:"1.6.1.3.2", to:"1.4.1.1.8", from_to:246, to_from:233},
+    {from:"1.14.1.4.2", to:"1.12.1.1.1", from_to:329, to_from:207},
+    {from:"1.13.1.1.1", to:"1.15.1.2.2", from_to:499, to_from:472},
+    {from:"1.12.2.1.4", to:"1.14.1.4.1", from_to:485, to_from:458},
+    {from:"5.1.1.1.3", to:"1.11.1.1.17", from_to:74, to_from:78},
+    {from:"1.9.1.1.11", to:"1.14.1.4.2", from_to:254, to_from:444},
+    {from:"1.3.1.1.1", to:"1.12.2.1.4", from_to:76, to_from:254},
+    {from:"1.4.1.1.8", to:"5.10.1.1.1", from_to:31, to_from:32},
+    {from:"5.10.1.1.1", to:"1.5.1.1.8", from_to: 4, to_from: 6},
+    {from:"1.5.1.1.8", to:"1.14.1.4.1", from_to:410, to_from:402},
+    {from:"3.2.1.1.1", to:"1.35.1.1.1", from_to:41, to_from: 2},
+    {from:"1.6.1.3.2", to:"1.14.1.4.1", from_to:415, to_from:196},
+    {from:"1.15.1.2.2", to:"1.27.1.1.1", from_to:49, to_from:138},
+    {from:"1.27.1.1.1", to:"1.9.1.4.1", from_to:287, to_from:104},
+    {from:"1.5.1.1.7", to:"1.12.2.1.4", from_to:156, to_from:119},
+    {from:"1.14.1.4.2", to:"1.35.1.1.1", from_to:293, to_from:158},
+    {from:"1.14.1.4.1", to:"1.14.1.1.11", from_to:238, to_from:211},
+    {from:"1.12.2.1.4", to:"1.13.1.1.1", from_to:514, to_from:449},
+    {from:"1.3.1.1.1", to:"1.5.1.1.1", from_to:30, to_from:152},
+    {from:"1.35.1.1.1", to:"1.2.1.1.1", from_to:156, to_from:199},
+    {from:"1.27.1.1.1", to:"1.12.2.1.1", from_to:82, to_from:15},
+    {from:"1.12.2.1.1", to:"1.12.2.1.4", from_to:218, to_from:958},
+    {from:"1.14.1.1.11", to:"5.6.1.1.2", from_to:182, to_from:182},
+    {from:"1.11.1.1.7", to:"1.35.1.1.4", from_to:328, to_from:261},
+    {from:"5.6.1.1.2", to:"1.9.1.4.1", from_to:218, to_from:210},
+    {from:"1.5.1.1.8", to:"1.12.2.1.4", from_to:124, to_from:167},
+    {from:"5.6.1.1.2", to:"1.3.1.1.1", from_to:31, to_from:11},
+    {from:"5.1.1.1.3", to:"1.14.1.4.1", from_to:507, to_from:416},
+    {from:"1.11.1.1.17", to:"1.15.1.2.2", from_to:624, to_from:549},
+    {from:"1.12.2.1.4", to:"1.35.1.1.4", from_to:406, to_from:308},
+    {from:"1.12.2.1.4", to:"1.9.1.1.11", from_to:153, to_from:155},
+    {from:"1.5.1.1.1", to:"1.12.2.1.1", from_to:111, to_from:13},
+    {from:"1.12.1.1.1", to:"1.14.1.1.11", from_to:380, to_from:384},
+    {from:"1.7.1.1.12", to:"1.35.1.1.1", from_to:120, to_from:169},
+    {from:"1.13.1.1.1", to:"5.1.1.1.3", from_to:185, to_from:150},
+    {from:"3.2.1.1.1", to:"1.12.1.1.1", from_to:188, to_from:11},
+    {from:"1.27.1.1.1", to:"1.9.1.3.4", from_to:159, to_from:56},
+    {from:"1.27.1.1.1", to:"3.2.1.1.1", from_to:67, to_from:31},
+    {from:"1.11.1.1.17", to:"1.9.1.3.4", from_to:649, to_from:601},
+    {from:"5.10.1.1.1", to:"5.6.1.1.2", from_to:11, to_from: 7},
+    {from:"3.2.1.1.1", to:"1.14.1.1.11", from_to:98, to_from: 5},
+    {from:"3.2.1.1.1", to:"1.11.1.1.17", from_to:93, to_from: 6},
+    {from:"1.11.1.1.17", to:"1.12.2.1.1", from_to:93, to_from: 9},
+    {from:"3.2.1.1.1", to:"1.5.1.1.8", from_to:96, to_from: 3},
+    {from:"3.2.1.1.1", to:"1.12.2.1.4", from_to:595, to_from:19},
+    {from:"1.4.1.1.8", to:"1.14.1.1.11", from_to:164, to_from:85},
+    {from:"1.12.2.1.4", to:"1.9.1.4.1", from_to:206, to_from:182},
+    {from:"5.1.1.1.3", to:"1.11.1.1.7", from_to:70, to_from:86},
+    {from:"1.11.1.1.7", to:"1.5.1.1.8", from_to:373, to_from:326},
+    {from:"1.12.1.1.1", to:"1.12.2.1.1", from_to:198, to_from:52},
+    {from:"3.2.1.1.1", to:"1.6.1.3.2", from_to:168, to_from:19},
+    {from:"1.9.1.3.4", to:"1.4.1.1.8", from_to:122, to_from:189},
+    {from:"1.9.1.1.11", to:"1.12.2.1.1", from_to:85, to_from: 8},
+    {from:"1.14.1.4.2", to:"1.11.1.1.17", from_to:270, to_from:181},
+    {from:"3.2.1.1.1", to:"5.1.1.1.2", from_to:155, to_from:10},
+    {from:"1.4.1.1.8", to:"1.3.1.1.1", from_to:466, to_from:132},
+    {from:"1.9.1.3.4", to:"5.6.1.1.2", from_to:140, to_from:129},
+    {from:"1.2.1.1.1", to:"1.14.1.4.2", from_to:68, to_from:75},
+    {from:"1.5.1.1.7", to:"1.11.1.1.7", from_to:246, to_from:171},
+    {from:"1.2.1.1.1", to:"1.13.1.1.1", from_to:183, to_from:97},
+    {from:"1.4.1.1.8", to:"1.35.1.1.1", from_to:236, to_from:108},
+    {from:"5.6.1.1.2", to:"1.12.1.1.1", from_to:190, to_from:194},
+    {from:"1.14.1.4.2", to:"5.1.1.1.3", from_to:305, to_from:215},
+    {from:"1.12.1.1.1", to:"1.3.1.1.1", from_to:114, to_from:47},
+    {from:"5.1.1.1.3", to:"1.2.1.1.1", from_to:58, to_from:95},
+    {from:"1.2.1.1.1", to:"5.6.1.1.2", from_to:102, to_from:90},
+    {from:"5.6.1.1.2", to:"1.4.1.1.8", from_to:115, to_from:264},
+    {from:"3.2.1.1.1", to:"1.9.1.3.4", from_to:169, to_from: 4},
+    {from:"1.12.1.1.1", to:"3.6.1.1.1", from_to:50, to_from:42},
+    {from:"3.6.1.1.1", to:"5.6.1.1.2", from_to:28, to_from:27},
+    {from:"3.2.1.1.1", to:"1.14.1.4.2", from_to:38, to_from: 2},
+    {from:"1.14.1.4.2", to:"1.12.2.1.1", from_to:51, to_from: 6},
+    {from:"3.2.1.1.1", to:"1.9.1.1.11", from_to:106, to_from: 4},
+    {from:"1.5.1.1.8", to:"1.12.2.1.1", from_to:62, to_from: 7},
+    {from:"1.11.1.1.17", to:"5.6.1.1.2", from_to:136, to_from:101},
+    {from:"1.27.1.1.1", to:"1.7.1.1.12", from_to:124, to_from:63},
+    {from:"3.2.1.1.1", to:"1.5.1.1.7", from_to:39, to_from: 3},
+    {from:"1.11.1.1.7", to:"1.4.1.1.8", from_to:67, to_from:113},
+    {from:"1.35.1.1.4", to:"1.12.2.1.1", from_to:81, to_from:17},
+    {from:"1.4.1.1.8", to:"5.1.1.1.3", from_to:306, to_from:235},
+    {from:"1.2.1.1.1", to:"3.2.1.1.1", from_to:37, to_from:23},
+    {from:"1.14.1.1.11", to:"5.1.1.1.3", from_to:60, to_from:65},
+    {from:"1.2.1.1.1", to:"1.11.1.1.17", from_to:143, to_from:60},
+    {from:"1.11.1.1.17", to:"1.11.1.1.7", from_to:14, to_from:25},
+    {from:"1.27.1.1.1", to:"1.11.1.1.7", from_to:44, to_from:24},
+    {from:"5.1.1.1.3", to:"1.35.1.1.4", from_to:91, to_from:83},
+    {from:"1.35.1.1.1", to:"1.3.1.1.1", from_to:63, to_from:12},
+    {from:"1.9.1.3.4", to:"1.12.2.1.4", from_to:169, to_from:185},
+    {from:"5.1.1.1.3", to:"1.5.1.1.7", from_to:32, to_from:42},
+    {from:"1.12.2.1.4", to:"1.14.1.1.11", from_to:153, to_from:128},
+    {from:"1.11.1.1.7", to:"5.6.1.1.2", from_to:141, to_from:120},
+    {from:"1.6.1.3.2", to:"1.3.1.1.1", from_to:23, to_from:12},
+    {from:"1.12.2.1.4", to:"5.6.1.1.2", from_to:480, to_from:398},
+    {from:"5.1.1.1.2", to:"1.3.1.1.1", from_to:85, to_from:31},
+    {from:"3.2.1.1.1", to:"1.14.1.4.1", from_to:73, to_from: 6},
+    {from:"5.1.1.1.3", to:"1.12.2.1.1", from_to:185, to_from:47},
+    {from:"1.27.1.1.1", to:"1.14.1.4.2", from_to:93, to_from:59},
+    {from:"5.1.1.1.3", to:"1.3.1.1.1", from_to:44, to_from:27},
+    {from:"3.2.1.1.1", to:"1.13.1.1.1", from_to:132, to_from: 6},
+    {from:"5.1.1.1.2", to:"1.12.2.1.1", from_to:135, to_from:21},
+    {from:"1.14.1.4.2", to:"1.3.1.1.1", from_to:25, to_from: 6},
+    {from:"1.7.1.1.12", to:"3.6.1.1.1", from_to:62, to_from:113},
+    {from:"1.5.1.1.1", to:"5.1.1.1.3", from_to:97, to_from:69},
+    {from:"3.2.1.1.1", to:"1.35.1.1.4", from_to:104, to_from: 6},
+    {from:"1.6.1.3.2", to:"1.2.1.1.1", from_to:39, to_from:66},
+    {from:"1.2.1.1.1", to:"1.15.1.2.2", from_to:69, to_from:56},
+    {from:"1.9.1.3.4", to:"3.6.1.1.1", from_to:16, to_from:25},
+    {from:"1.13.1.1.1", to:"1.3.1.1.1", from_to:58, to_from:21},
+    {from:"1.11.1.1.17", to:"1.3.1.1.1", from_to:42, to_from: 8},
+    {from:"1.35.1.1.1", to:"5.10.1.1.1", from_to: 9, to_from: 4},
+    {from:"3.2.1.1.1", to:"1.15.1.2.2", from_to:101, to_from: 2},
+    {from:"1.15.1.2.2", to:"1.3.1.1.1", from_to:27, to_from:11},
+    {from:"3.2.1.1.1", to:"1.3.1.1.1", from_to:28, to_from: 3},
+    {from:"1.5.1.1.7", to:"5.10.1.1.1", from_to: 4, to_from: 4},
+    {from:"5.10.1.1.1", to:"1.6.1.3.2", from_to: 8, to_from:11},
+    {from:"1.13.1.1.1", to:"5.10.1.1.1", from_to:20, to_from:20},
+    {from:"5.10.1.1.1", to:"1.14.1.1.11", from_to:10, to_from: 9},
+    {from:"1.11.1.1.7", to:"1.12.2.1.1", from_to:123, to_from: 9},
+    {from:"1.14.1.4.2", to:"3.6.1.1.1", from_to:10, to_from: 7},
+    {from:"3.6.1.1.1", to:"5.1.1.1.2", from_to:20, to_from:12},
+    {from:"1.4.1.1.8", to:"1.12.2.1.1", from_to:157, to_from:28},
+    {from:"1.7.1.1.12", to:"1.12.2.1.1", from_to:226, to_from:37},
+    {from:"3.2.1.1.1", to:"1.7.1.1.12", from_to:254, to_from:12},
+    {from:"5.10.1.1.1", to:"1.9.1.4.1", from_to:16, to_from:15},
+    {from:"3.2.1.1.1", to:"1.5.1.1.1", from_to:58, to_from: 2},
+    {from:"1.6.1.3.2", to:"3.6.1.1.1", from_to:25, to_from:20},
+    {from:"3.6.1.1.1", to:"1.11.1.1.7", from_to:26, to_from:29},
+    {from:"1.4.1.1.8", to:"3.6.1.1.1", from_to:46, to_from:50},
+    {from:"1.7.1.1.12", to:"1.3.1.1.1", from_to:63, to_from:19},
+    {from:"1.2.1.1.1", to:"1.12.2.1.1", from_to:53, to_from: 4},
+    {from:"3.6.1.1.1", to:"1.35.1.1.1", from_to:13, to_from: 6},
+    {from:"3.6.1.1.1", to:"1.15.1.2.2", from_to:15, to_from:12},
+    {from:"3.6.1.1.1", to:"1.5.1.1.1", from_to:11, to_from:17},
+    {from:"1.9.1.3.4", to:"1.3.1.1.1", from_to:26, to_from: 5},
+    {from:"5.10.1.1.1", to:"1.7.1.1.12", from_to:22, to_from:28},
+    {from:"1.2.1.1.1", to:"1.7.1.1.12", from_to:91, to_from:53},
+    {from:"1.15.1.2.2", to:"5.10.1.1.1", from_to:14, to_from:13},
+    {from:"1.9.1.1.11", to:"3.6.1.1.1", from_to: 9, to_from:16},
+    {from:"3.6.1.1.1", to:"1.14.1.4.1", from_to:13, to_from:16},
+    {from:"1.27.1.1.1", to:"3.6.1.1.1", from_to:19, to_from: 5},
+    {from:"3.6.1.1.1", to:"1.3.1.1.1", from_to:15, to_from: 6},
+    {from:"1.11.1.1.7", to:"1.3.1.1.1", from_to:20, to_from: 3},
+    {from:"1.11.1.1.7", to:"1.2.1.1.1", from_to:11, to_from:24},
+    {from:"1.3.1.1.1", to:"1.14.1.1.11", from_to: 1, to_from:17},
+    {from:"3.6.1.1.1", to:"1.12.2.1.4", from_to:99, to_from:155},
+    {from:"3.6.1.1.1", to:"1.5.1.1.7", from_to: 5, to_from: 7},
+    {from:"1.2.1.1.1", to:"1.9.1.3.4", from_to:67, to_from:30},
+    {from:"1.14.1.1.11", to:"1.2.1.1.1", from_to:75, to_from:82},
+    {from:"3.2.1.1.1", to:"1.11.1.1.7", from_to:134, to_from: 2},
+    {from:"5.6.1.1.2", to:"1.12.2.1.1", from_to:77, to_from:17},
+    {from:"1.2.1.1.1", to:"3.6.1.1.1", from_to:14, to_from: 7},
+    {from:"3.2.1.1.1", to:"3.6.1.1.1", from_to:23, to_from: 0},
+    {from:"3.6.1.1.1", to:"1.5.1.1.8", from_to:14, to_from: 6},
+    {from:"3.2.1.1.1", to:"1.4.1.1.8", from_to:87, to_from:49},
+    {from:"3.2.1.1.1", to:"5.6.1.1.2", from_to:92, to_from: 4},
+    {from:"1.12.2.1.4", to:"5.10.1.1.1", from_to:70, to_from:46},
+    {from:"5.10.1.1.1", to:"1.3.1.1.1", from_to: 6, to_from: 2},
+    {from:"5.10.1.1.1", to:"1.14.1.4.2", from_to: 3, to_from: 3},
+    {from:"1.11.1.1.7", to:"5.10.1.1.1", from_to: 9, to_from: 6},
+    {from:"5.10.1.1.1", to:"1.5.1.1.1", from_to: 8, to_from: 9},
+    {from:"1.27.1.1.1", to:"5.10.1.1.1", from_to:10, to_from: 6},
+    {from:"3.6.1.1.1", to:"5.1.1.1.3", from_to:35, to_from:36},
+    {from:"1.14.1.1.11", to:"3.6.1.1.1", from_to: 7, to_from: 8},
+    {from:"5.10.1.1.1", to:"5.1.1.1.2", from_to:10, to_from:12},
+    {from:"3.6.1.1.1", to:"1.12.2.1.1", from_to:30, to_from: 5},
+    {from:"1.3.1.1.1", to:"1.12.2.1.1", from_to: 8, to_from:12},
+    {from:"3.6.1.1.1", to:"1.35.1.1.4", from_to:26, to_from:11},
+    {from:"5.10.1.1.1", to:"1.12.2.1.1", from_to:19, to_from: 4},
+    {from:"5.1.1.1.3", to:"5.10.1.1.1", from_to:16, to_from:20},
+    {from:"1.2.1.1.1", to:"5.10.1.1.1", from_to: 5, to_from: 0}
+  ];
+  
+  var w = document.body.offsetWidth - 200,
+      h = document.body.offsetHeight,
+      maxUvPV = {},
+      nodes = [],
+      nameArr = [],
+      links = [];
+        
+  function getMaxUvPv(arr) {
+    var max_uv = 0,
+        max_pv = 0,
+        uvArr = [],
+        pvArr = [];
+
+    nameArr = [];
+    arr.map(function(node) {
+      nameArr.push(node.name);
+      uvArr.push(node.uv);
+      pvArr.push(node.pv);
+    });
+    return {
+      max_uv: Math.max.apply(null, uvArr),
+      max_pv: Math.max.apply(null, pvArr)
+    }
+  }
+  maxUvPV = getMaxUvPv(nodes_source);
+  
+  nodes_source.forEach(function(node, i) {
+    nodes.push({
+      name: node.name,
+      radius: (Math.pow(node.uv, 2) / Math.pow(maxUvPV.max_uv, 2) * 10)
+    });
+  });
+  line_source.forEach(function(link, j) {
+    var src = link.from.trim(),
+        dest = link.to.trim(),
+        srcNo = 0,
+        destNo = 0;
+    
+    if ((nameArr.indexOf(src) < 0) || (nameArr.indexOf(dest) < 0)) {
+      return;
+    }
+    srcNo = nameArr.indexOf(src);
+    destNo = nameArr.indexOf(dest);
+    links.push({
+      source: srcNo,
+      target: destNo,
+      weight: link.from_to / 1000,
+      color: "red"
+    }, {
+      source: destNo,
+      target: srcNo,
+      weight: link.to_from / 1000,
+      color: "blue"
+    });
+  });
+  
+  var force = d3.layout.force()
+    .nodes(nodes) //指定节点数组
+    .links(links) //指定连线数组
+    .size([w, h]) // 指定作用域范围
+    .linkDistance(600) //指定连线长度
+    .charge(-400) //相互之间的作用域
+    .on("tick", tick)
+    .start(); // 使力学作用生效
+
+  var svg = d3.select("body").append("svg:svg")
+    .attr("width", w)
+    .attr("height", h);
+
+  //(2)根据连线类型引用上面创建的标记
+  var path = svg.append("svg:g").selectAll("path")
+    .data(force.links())
+    .enter().append("svg:path")
+    .attr("class", function(d) {
+      return "link";
+    })
+    .style("stroke", function(d) { //  设置线的颜色
+      return d.color;
+    })
+    .style("stroke-width", function(d) { //设置线的宽度
+      return d.weight;
+    });
+
+  var circle = svg.append("svg:g").selectAll("circle")
+    .data(force.nodes())
+    .enter().append("svg:circle")
+    .attr("r", function(d) {
+      return d.radius;
+    })
+    .call(force.drag); // 使得节点能够拖动
+
+  var text = svg.append("svg:g").selectAll("g")
+    .data(force.nodes())
+    .enter().append("svg:g");
+
+  // A copy of the text with a thick white stroke for legibility.
+  text.append("svg:text")
+    .attr("x", 8)
+    .attr("y", ".31em")
+    .attr("class", "shadow")
+    .text(function(d) {
+      return d.name;
+    });
+
+  text.append("svg:text")
+    .attr("x", 8)
+    .attr("y", ".31em")
+    .text(function(d) {
+      return d.name;
+    });
+
+  // 使用椭圆弧路径段双向编码。
+  function tick() { // 对于每一个时间间隔
+    //(3)打点path格式是：Msource.x,source.yArr00,1target.x,target.y
+    path.attr("d", function(d) {
+      var dx = d.target.x - d.source.x, //增量
+          dy = d.target.y - d.source.y,
+          dr = Math.sqrt(dx * dx + dy * dy);
+
+      return "M" + d.source.x + "," + d.source.y + "A" + dr + "," + dr + " 0 0,1 " + d.target.x + "," + d.target.y;
+    });
+
+    circle.attr("transform", function(d) {
+      return "translate(" + d.x + "," + d.y + ")";
+    });
+
+    text.attr("transform", function(d) {
+      return "translate(" + d.x + "," + d.y + ")";
+    });
+  }
+  window.onresize = function() {
+    window.location.reload();
+  }
+  </script>
+</body>
+
+</html>
